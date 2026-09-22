@@ -1,3 +1,9 @@
+# Objective
+Develop a data processing pipeline that tranforms a large volume of text data from a Kinesis stream into a format suitable for the continuous training a text summarization model. 
+
+# Overview
+The NLP model must be trained on a regular schedule to keep up-to-date on the stylistic elements of modern journalism. Therefore I developed a data pipeline capable of processing incoming text data efficiently. The ultimate goal is to enhance this data in ways that bolster machine learning (ML) training scenarios. This includes considering how the result is stored, ensuring that it supports efficient data access patterns suitable for large-scale processing and ML model training.
+
 # Kinesis article enrichment pipeline
 
 This project reads article events from Kinesis, adds a `word_count` feature, keeps a running average of that feature, and writes the enriched records to S3 as partitioned Parquet files. Everything runs locally with Docker Compose and LocalStack.
