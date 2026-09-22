@@ -1,0 +1,67 @@
+x-aws-environment: &aws-environment
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_ENDPOINT_URL: http://localstack:4566
+  STREAM_NAME: MyStream
+  OUTPUT_BUCKET: my-bucket
+
+services:
+  localstack:
+    image: localstack/localstack:1.2.0
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: kinesis,s3
+      DEFAULT_REGION: us-east-1
+      LS_LOG: WARN
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4566/_localstack/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  article-publisher:
+    build: ./populate-script
+    environment:
+      <<: *aws-environment
+      NUM_ITERATIONS: 1
+      DATASET_SIZE_MB: 1
+      PUBLISH_INTERVAL_SECONDS: 1
+    depends_on:
+      localstack:
+        condition: service_healthy
+
+  processor:
+    build: ./processor
+    environment:
+      <<: *aws-environment
+      OUTPUT_PREFIX: enriched_articles
+      BATCH_SIZE: 250
+      FLUSH_INTERVAL_SECONDS: 5
+      POLL_INTERVAL_SECONDS: 0.5
+      STARTING_POSITION: TRIM_HORIZON
+      CHECKPOINT_PATH: /state/checkpoints.json
+    volumes:
+      - pipeline-state:/state
+    depends_on:
+      localstack:
+        condition: service_healthy
+
+  verifier:
+    build: ./processor
+    profiles: ["tools"]
+    command: ["python", "-m", "pipeline.verify"]
+    environment:
+      <<: *aws-environment
+      OUTPUT_PREFIX: enriched_articles
+      VERIFY_TIMEOUT_SECONDS: 90
+      VERIFY_SETTLE_SECONDS: 8
+    depends_on:
+      localstack:
+        condition: service_healthy
+
+volumes:
+  pipeline-state:
